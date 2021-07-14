@@ -279,7 +279,7 @@ class S7NorthPlugin(object):
             _LOGGER.warn("buffer before: %s", str(buffer))
             buffer = set_value(buffer, 0, payload["bool_index"], payload["value"], payload["type"])
             _LOGGER.warn("buffer: %s", str(buffer))
-            client.write_area(snap7.types.areas.DB, payload["dbnumber"], payload["byte_index"], buffer)
+            client.write_area(snap7.types.Areas.DB, int(payload["dbnumber"]), int(payload["byte_index"]), buffer)
 
         except Exception as ex:
             _LOGGER.exception(f'Exception sending payloads: {ex}')
@@ -313,7 +313,7 @@ def set_value(bytearray_, byte_index, bool_index, value, type_):
     elif type_ == 'real':
         #return value_to_type(set_real, bytearray_, byte_index, value)
         _LOGGER.warn("set real bytearray_: %s", str(bytearray_))
-        buffer = set_real_(bytearray_, byte_index, value)
+        buffer = set_real(bytearray_, byte_index, value)
         _LOGGER.warn("set real buffer: %s", str(buffer))
         return buffer
 
@@ -360,7 +360,7 @@ def set_value(bytearray_, byte_index, bool_index, value, type_):
 
     elif type_ == 'byte':
         #return value_to_type(set_byte_, bytearray_, byte_index, value)
-        return set_byte_(bytearray_, byte_index, value)
+        return set_byte(bytearray_, byte_index, value)
 
     # elif type_ == 'char':
     #     return chr(set_usint(bytearray_, byte_index))
@@ -430,29 +430,3 @@ def get_type_size(type_name):
         return array_size
 
     raise ValueError
-
-
-
-
-def set_real_(bytearray_: bytearray, byte_index: int, real) -> bytearray:
-    """Set Real value
-    Notes:
-        Datatype `real` is represented in 4 bytes in the PLC.
-        The packed representation uses the `IEEE 754 binary32`.
-    Args:
-        bytearray_: buffer to write to.
-        byte_index: byte index to start writing from.
-        real: value to be written.
-    Returns:
-        Buffer with the value written.
-    Examples:
-        >>> data = bytearray(4)
-        >>> snap7.util.set_real(data, 0, 123.321)
-            bytearray(b'B\\xf6\\xa4Z')
-    """
-    real = float(real)
-    real = struct.pack('>f', real)
-    _bytes = struct.unpack('4B', real)
-    for i, b in enumerate(_bytes):
-        bytearray_[byte_index + i] = b
-    return bytearray_

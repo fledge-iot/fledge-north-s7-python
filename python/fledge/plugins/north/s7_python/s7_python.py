@@ -278,10 +278,6 @@ class S7NorthPlugin(object):
             buffer = set_value(buffer, 0, payload["bool_index"], payload["value"], payload["type"])
             client.write_area(snap7.types.Areas.DB, int(payload["dbnumber"]), int(payload["byte_index"]), buffer)
 
-            #buffer = bytearray(bytearray_size)
-            #buffer = set_real(buffer, 0, -13)
-            #client.write_area(snap7.types.Areas.DB, 788, 272, buffer)
-
         except Exception as ex:
             _LOGGER.exception(f'Exception sending payloads: {ex}')
 
@@ -299,7 +295,7 @@ def set_value(bytearray_, byte_index, bool_index, value, type_):
     type_ = type_.strip().lower()
 
     if type_ == 'bool':
-        return set_bool(bytearray_, byte_index, bool_index, value)
+        return set_bool_(bytearray_, byte_index, bool_index, value)
 
     if type_.startswith('string'):
         max_size = re.search(r'\d+', type_)
@@ -431,3 +427,33 @@ def get_type_size(type_name):
         return array_size
 
     raise ValueError
+
+def set_bool_(bytearray_: bytearray, byte_index: int, bool_index: int, value: bool):
+    """Set boolean value on location in bytearray.
+    Args:
+        bytearray_: buffer to write to.
+        byte_index: byte index to write to.
+        bool_index: bit index to write to.
+        value: value to write.
+    Examples:
+        >>> buffer = bytearray([0b00000000])
+        >>> set_bool(buffer, 0, 0, True)
+        >>> buffer
+            bytearray(b"\\x01")
+    """
+    if value not in {0, 1, True, False}:
+        raise TypeError(f"Value value:{value} is not a boolean expression.")
+
+    current_value = get_bool(bytearray_, byte_index, bool_index)
+    index_value = 1 << bool_index
+
+    # check if bool already has correct value
+    if current_value == value:
+        return
+
+    if value:
+        # make sure index_v is IN current byte
+        bytearray_[byte_index] += index_value
+    else:
+        # make sure index_v is NOT in current byte
+        bytearray_[byte_index] -= index_value

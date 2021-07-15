@@ -128,7 +128,7 @@ _DEFAULT_CONFIG = {
         # }),
         'default': json.dumps({
             "sinusoid": {
-                "sinusoid": {"DB": "789", "index": "272.0", "type": "Real"},
+                "sinusoid": {"DB": "788", "index": "272.0", "type": "Real"},
             }
         }),
         'order': '6',
@@ -274,12 +274,13 @@ class S7NorthPlugin(object):
 
         try:
             bytearray_size = get_type_size(payload["type"])
-            _LOGGER.warn("bytearray_size: %s", str(bytearray_size))
             buffer = bytearray(bytearray_size)
-            _LOGGER.warn("buffer before: %s", str(buffer))
             buffer = set_value(buffer, 0, payload["bool_index"], payload["value"], payload["type"])
-            _LOGGER.warn("buffer: %s", str(buffer))
             client.write_area(snap7.types.Areas.DB, int(payload["dbnumber"]), int(payload["byte_index"]), buffer)
+
+            #buffer = bytearray(bytearray_size)
+            #buffer = set_real(buffer, 0, -13)
+            #client.write_area(snap7.types.Areas.DB, 788, 272, buffer)
 
         except Exception as ex:
             _LOGGER.exception(f'Exception sending payloads: {ex}')

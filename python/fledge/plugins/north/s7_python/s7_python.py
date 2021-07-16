@@ -225,6 +225,9 @@ class S7NorthPlugin(object):
                         if not (item.get('index') is None) and not (item.get('DB') is None) and not (item.get('type') is None):
                             if datapoint in p['reading']:
                                 read = dict()
+
+                                read["asset"] = p['asset_code']
+                                read["datapoint"] = datapoint
                                 read["value"] = p['reading'][datapoint]
                                 read["type"] = item.get('type')
                                 read["dbnumber"] = int(item.get('DB'))
@@ -234,9 +237,7 @@ class S7NorthPlugin(object):
                                 if  len (index_split) == 2:
                                     bool_index = int(index_split[1])
                                 read["bool_index"] = bool_index
-
                                 read["timestamp"] = p['user_ts']
-                                _LOGGER.warn("read: %s", str(read))
 
                                 await self._send_payload(read)
                 num_sent+=1
@@ -262,7 +263,6 @@ class S7NorthPlugin(object):
         try:
             client = snap7.client.Client()
             client_connected = client.connect(host, rack, slot, port)
-            #client.connect(host, rack, slot)
             client_connected = client.get_connected()
             if client_connected:
                 _LOGGER.info('S7 TCP Client is connected. %s:%d', host, port)
@@ -277,12 +277,15 @@ class S7NorthPlugin(object):
             buffer = bytearray(bytearray_size)
             buffer = set_value(buffer, 0, payload["bool_index"], payload["value"], payload["type"])
 
-            _LOGGER.warn("type %s", payload["type"])
-            _LOGGER.warn("buffer %s", str(buffer))
+            if buffer is None:
+                _LOGGER.warn("Buffer is None! Asset: %s, Datapoint: %s, DB: %d, Index: %d.%d, Type: %s, Value: %s", payload["asset"], payload["datapoint"], payload["dbnumber"],  payload["byte_index"], payload["bool_index"], payload["type"], str(payload["value"]))
+                return
 
-            client.write_area(snap7.types.Areas.DB, int(payload["dbnumber"]), int(payload["byte_index"]), buffer)
+            _LOGGER.debug("Asset: %s, Datapoint: %s, DB: %d, Index: %d.%d, Type: %s, Buffer: %s", payload["asset"], payload["datapoint"], payload["dbnumber"],  payload["byte_index"], payload["bool_index"], payload["type"], str(buffer))
+            client.write_area(snap7.types.Areas.DB, payload["dbnumber"], payload["byte_index"], buffer)
 
         except Exception as ex:
+            #client.disconnect()
             _LOGGER.exception(f'Exception sending payloads: {ex}')
 
 def set_value(bytearray_, byte_index, bool_index, value, type_):
@@ -306,17 +309,12 @@ def set_value(bytearray_, byte_index, bool_index, value, type_):
         #(\d+\.\.)?(\d+)    0..9
         #if max_size is None:
         #    max_size = 255
-
-        _LOGGER.warn("max_size %d", max_size)
-
+        _LOGGER.info("string max_size %d", max_size)
         return set_string_(bytearray_, byte_index, str(value), int(max_size))
 
     elif type_ == 'real':
         #return value_to_type(set_real, bytearray_, byte_index, value)
-        _LOGGER.warn("set real bytearray_: %s", str(bytearray_))
-        buffer = set_real(bytearray_, byte_index, value)
-        _LOGGER.warn("set real buffer: %s", str(buffer))
-        return buffer
+        return set_real(bytearray_, byte_index, value)
 
     # elif type_ == 'lreal':
     #     return set_lreal(bytearray_, byte_index)
@@ -328,7 +326,6 @@ def set_value(bytearray_, byte_index, bool_index, value, type_):
     elif type_ == 'dword':
         #return value_to_type(set_dword, bytearray_, byte_index, value)
         return set_dword_(bytearray_, byte_index, value)
-
 
     # elif type_ == 'lword':
     #     return set_lword(bytearray_, byte_index)
@@ -426,10 +423,6 @@ def get_type_size(type_name):
         array_size = int(type_split[2][:-1]) # +1 because array start with 0
         return array_size * string_size
 
-    # FIXME ???
-    if type_split[0] == 'string':
-        return array_size
-
     raise ValueError
 
 def set_bool_(bytearray_: bytearray, byte_index: int, bool_index: int, value: bool):
@@ -461,6 +454,8 @@ def set_bool_(bytearray_: bytearray, byte_index: int, bool_index: int, value: bo
     else:
         # make sure index_v is NOT in current byte
         bytearray_[byte_index] -= index_value
+
+    return bytearray_
 
 def set_string_(bytearray_: bytearray, byte_index: int, value: str, max_size: int):
     """Set string value
@@ -498,7 +493,6 @@ def set_string_(bytearray_: bytearray, byte_index: int, value: str, max_size: in
         bytearray_[byte_index + 2 + r] = ord(' ')
 
     return bytearray_
-
 
 def set_dword_(bytearray_: bytearray, byte_index: int, dword: int):
     """Set a DWORD to the buffer.

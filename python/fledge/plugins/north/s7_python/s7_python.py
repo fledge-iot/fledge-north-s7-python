@@ -276,6 +276,10 @@ class S7NorthPlugin(object):
             bytearray_size = get_type_size(payload["type"])
             buffer = bytearray(bytearray_size)
             buffer = set_value(buffer, 0, payload["bool_index"], payload["value"], payload["type"])
+
+            _LOGGER.warn("type %s", payload["type"])
+            _LOGGER.warn("buffer %s", str(buffer))
+
             client.write_area(snap7.types.Areas.DB, int(payload["dbnumber"]), int(payload["byte_index"]), buffer)
 
         except Exception as ex:
@@ -298,14 +302,14 @@ def set_value(bytearray_, byte_index, bool_index, value, type_):
         return set_bool_(bytearray_, byte_index, bool_index, value)
 
     if type_.startswith('string'):
-        max_size = re.search(r'\d+', type_)
+        max_size = re.search(r'\d+', type_)[0]
         #(\d+\.\.)?(\d+)    0..9
         #if max_size is None:
+        #    max_size = 255
 
-           #raise Snap7Exception("Max size could not be determinate. re.search() returned None")
-        max_size_grouped = max_size.group(0)
-        max_size_int = int(max_size_grouped)
-        return set_string(bytearray_, byte_index, value, max_size_int)
+        _LOGGER.warn("max_size %d", max_size)
+
+        return set_string_(bytearray_, byte_index, str(value), int(max_size))
 
     elif type_ == 'real':
         #return value_to_type(set_real, bytearray_, byte_index, value)
@@ -323,7 +327,7 @@ def set_value(bytearray_, byte_index, bool_index, value, type_):
 
     elif type_ == 'dword':
         #return value_to_type(set_dword, bytearray_, byte_index, value)
-        return set_dword(bytearray_, byte_index, value)
+        return set_dword_(bytearray_, byte_index, value)
 
 
     # elif type_ == 'lword':
@@ -338,7 +342,7 @@ def set_value(bytearray_, byte_index, bool_index, value, type_):
 
     elif type_ == 'dint':
         #return value_to_type(set_dint bytearray_, byte_index, value)
-        return set_dint(bytearray_, byte_index, value)
+        return set_dint_(bytearray_, byte_index, value)
 
     # elif type_ == 'lint':
     #     return set_lint(bytearray_, byte_index)
@@ -457,3 +461,85 @@ def set_bool_(bytearray_: bytearray, byte_index: int, bool_index: int, value: bo
     else:
         # make sure index_v is NOT in current byte
         bytearray_[byte_index] -= index_value
+
+def set_string_(bytearray_: bytearray, byte_index: int, value: str, max_size: int):
+    """Set string value
+    Args:
+        bytearray_: buffer to write to.
+        byte_index: byte index to start writing from.
+        value: string to write.
+        max_size: maximum possible string size.
+    Raises:
+        :obj:`TypeError`: if the `value` is not a :obj:`str`.
+        :obj:`ValueError`: if the length of the  `value` is larger than the `max_size`.
+    Examples:
+        >>> data = bytearray(20)
+        >>> snap7.util.set_string(data, 0, "hello world", 255)
+        >>> data
+            bytearray(b'\\x00\\x0bhello world\\x00\\x00\\x00\\x00\\x00\\x00\\x00')
+    """
+    if not isinstance(value, str):
+        raise TypeError(f"Value value:{value} is not from Type string")
+
+    size = len(value)
+    # FAIL HARD WHEN trying to write too much data into PLC
+    if size > max_size:
+        raise ValueError(f'size {size} > max_size {max_size} {value}')
+    # set len count on first position
+    bytearray_[byte_index + 1] = len(value)
+
+    i = 0
+    # fill array which chr integers
+    for i, c in enumerate(value):
+        bytearray_[byte_index + 2 + i] = ord(c)
+
+    # fill the rest with empty space
+    for r in range(i + 1, bytearray_[byte_index]):
+        bytearray_[byte_index + 2 + r] = ord(' ')
+
+    return bytearray_
+
+
+def set_dword_(bytearray_: bytearray, byte_index: int, dword: int):
+    """Set a DWORD to the buffer.
+    Notes:
+        Datatype `dword` consists in 8 bytes in the PLC.
+        The maximum value posible is `4294967295`
+    Args:
+        bytearray_: buffer to write to.
+        byte_index: byte index from where to writing reading.
+        dword: value to write.
+    Examples:
+        >>> data = bytearray(4)
+        >>> snap7.util.set_dword(data,0, 4294967295)
+        >>> data
+            bytearray(b'\\xff\\xff\\xff\\xff')
+    """
+    dword = int(dword)
+    _bytes = struct.unpack('4B', struct.pack('>I', dword))
+    for i, b in enumerate(_bytes):
+        bytearray_[byte_index + i] = b
+
+    return bytearray_
+
+def set_dint_(bytearray_: bytearray, byte_index: int, dint: int):
+    """Set value in bytearray to dint
+    Notes:
+        Datatype `dint` consists in 4 bytes in the PLC.
+        Maximum possible value is 2147483647.
+        Lower posible value is -2147483648.
+    Args:
+        bytearray_: buffer to write.
+        byte_index: byte index from where to start writing.
+    Examples:
+        >>> data = bytearray(4)
+        >>> snap7.util.set_dint(data, 0, 2147483647)
+        >>> data
+            bytearray(b'\\x7f\\xff\\xff\\xff')
+    """
+    dint = int(dint)
+    _bytes = struct.unpack('4B', struct.pack('>i', dint))
+    for i, b in enumerate(_bytes):
+        bytearray_[byte_index + i] = b
+
+    return bytearray_

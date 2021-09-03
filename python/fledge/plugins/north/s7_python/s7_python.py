@@ -54,9 +54,8 @@ from fledge.plugins.north.common.common import *
 
 """
 
-
 __author__ = "Sebastian Kropatschek"
-__copyright__ = "Copyright (c) 2021 ACDP"
+__copyright__ = "Copyright (c) 2021 Austrian Center for Digital Production (ACDP)"
 __license__ = "Apache 2.0"
 __version__ = "${VERSION}"
 

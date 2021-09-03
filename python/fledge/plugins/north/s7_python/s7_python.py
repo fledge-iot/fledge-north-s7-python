@@ -55,13 +55,13 @@ from fledge.plugins.north.common.common import *
 """
 
 
-
 __author__ = "Sebastian Kropatschek"
 __copyright__ = "Copyright (c) 2021 ACDP"
 __license__ = "Apache 2.0"
 __version__ = "${VERSION}"
 
-_LOGGER = logger.setup(__name__)
+_LOGGER = logger.setup(__name__, level=logging.DEBUG)
+""" Setup the access to the logging system of Fledge """
 
 _CONFIG_CATEGORY_NAME = "S7"
 _CONFIG_CATEGORY_DESCRIPTION = "S7 Python North Plugin"
@@ -76,8 +76,7 @@ _DEFAULT_CONFIG = {
     'host': {
         'description': 'Host IP address of the PLC',
         'type': 'string',
-        #'default': '127.0.0.1',
-        'default': '10.1.49.53',
+        'default': '127.0.0.1',
         'order': '2',
         'displayName': 'Host TCP Address'
     },
@@ -133,8 +132,23 @@ _DEFAULT_CONFIG = {
         }),
         'order': '6',
         'displayName': 'Register Map'
+    },
+    'supportBool': {
+        'type': 'boolean',
+        'description': 'Activation of write support for the type boolean. This setting is not recommended because only whole bytes can be written. Procedure: The byte is read, then a bit is changed and finally the whole byte with the changed bit is written again. In the meantime, however, a bit may have changed, which can be very dangerous)',
+        'default': 'False',
+        'order': '7',
+        'displayName': 'boolean write support (dangerous)'
+    },
+    'verify': {
+        'type': 'boolean',
+        'description': '',
+        'default': 'False',
+        'order': '8',
+        'displayName': 'verify'
     }
 }
+
 
 def plugin_info():
     return {
@@ -145,13 +159,16 @@ def plugin_info():
         'config': _DEFAULT_CONFIG
     }
 
+
 def plugin_init(data):
     _LOGGER.info('Initializing S7 North Python Plugin')
     global s7_north, config
     s7_north = S7NorthPlugin()
     config = data
-    _LOGGER.info(f'Initializing plugin with host: {config["host"]["value"]}, port: {config["port"]["value"]}, rack: {config["rack"]["value"]}  and slot: {config["slot"]["value"]}')
+    _LOGGER.info(
+        f'Initializing plugin with host: {config["host"]["value"]}, port: {config["port"]["value"]}, rack: {config["rack"]["value"]}  and slot: {config["slot"]["value"]}')
     return config
+
 
 async def plugin_send(data, payload, stream_id):
     try:
@@ -163,12 +180,16 @@ async def plugin_send(data, payload, stream_id):
         _LOGGER.info('payload sent successfully')
         return is_data_sent, new_last_object_id, num_sent
 
+
 def plugin_shutdown(data):
     pass
 
 # TODO: North plugin can not be reconfigured? (per callback mechanism)
+
+
 def plugin_reconfigure():
     pass
+
 
 class S7NorthPlugin(object):
     """ North S7 Plugin """
@@ -234,14 +255,14 @@ class S7NorthPlugin(object):
                                 index_split = str(item.get('index')).split('.')
                                 read["byte_index"] = int(index_split[0])
                                 bool_index = 0
-                                if  len (index_split) == 2:
+                                if len(index_split) == 2:
                                     bool_index = int(index_split[1])
                                 read["bool_index"] = bool_index
                                 read["timestamp"] = p['user_ts']
 
                                 await self._send_payload(read)
-                num_sent+=1
-            _LOGGER.info('payloads sent: {num_sent}')
+                num_sent += 1
+            _LOGGER.info(f'payloads sent: {num_sent}')
             is_data_sent = True
         except Exception as ex:
             _LOGGER.exception("Data could not be sent, %s", str(ex))
@@ -262,31 +283,62 @@ class S7NorthPlugin(object):
             raise ValueError(e_msg)
         try:
             client = snap7.client.Client()
-            client_connected = client.connect(host, rack, slot, port)
+            client.connect(host, rack, slot, port)
             client_connected = client.get_connected()
             if client_connected:
                 _LOGGER.info('S7 TCP Client is connected. %s:%d', host, port)
             else:
                 raise RuntimeError("S7 TCP Connection failed!")
         except:
-            _LOGGER.warn('Failed to connect! S7 TCP host %s on port %d, rack %d and slot %d ', host, port, rack, slot)
-            return 0
+            _LOGGER.warn(
+                'Failed to connect! S7 TCP host %s on port %d, rack %d and slot %d ', host, port, rack, slot)
+            raise RuntimeError("S7 TCP Connection failed!")
+            return
 
         try:
             bytearray_size = get_type_size(payload["type"])
-            buffer = bytearray(bytearray_size)
-            buffer = set_value(buffer, 0, payload["bool_index"], payload["value"], payload["type"])
+
+            _LOGGER.debug("supportBool: %s type: %s", str(
+                bool_(config["supportBool"]["value"])), str(type(bool_(config["supportBool"]["value"]))))
+
+            if payload["type"].strip().lower() == 'bool' and bool_(config["supportBool"]["value"]) is True:
+                _LOGGER.debug("BoolIfTrue")
+                buffer = client.read_area(
+                    snap7.types.Areas.DB, payload["dbnumber"], payload["byte_index"], bytearray_size)
+                _LOGGER.warn("First read Bool Byte! Buffer: ", str(buffer))
+            else:
+                buffer = bytearray(bytearray_size)
+
+            buffer = set_value(
+                buffer, 0, payload["bool_index"], payload["value"], payload["type"])
 
             if buffer is None:
-                _LOGGER.warn("Buffer is None! Asset: %s, Datapoint: %s, DB: %d, Index: %d.%d, Type: %s, Value: %s", payload["asset"], payload["datapoint"], payload["dbnumber"],  payload["byte_index"], payload["bool_index"], payload["type"], str(payload["value"]))
+                _LOGGER.debug("Buffer is None! Asset: %s, Datapoint: %s, DB: %d, Index: %d.%d, Type: %s, Value: %s",
+                              payload["asset"], payload["datapoint"], payload["dbnumber"],  payload["byte_index"], payload["bool_index"], payload["type"], str(payload["value"]))
                 return
 
-            _LOGGER.debug("Asset: %s, Datapoint: %s, DB: %d, Index: %d.%d, Type: %s, Buffer: %s", payload["asset"], payload["datapoint"], payload["dbnumber"],  payload["byte_index"], payload["bool_index"], payload["type"], str(buffer))
-            client.write_area(snap7.types.Areas.DB, payload["dbnumber"], payload["byte_index"], buffer)
+            _LOGGER.debug("Asset: %s, Datapoint: %s, DB: %d, Index: %d.%d, Type: %s, Buffer: %s",
+                          payload["asset"], payload["datapoint"], payload["dbnumber"],  payload["byte_index"], payload["bool_index"], payload["type"], str(buffer))
+            client.write_area(snap7.types.Areas.DB,
+                              payload["dbnumber"], payload["byte_index"], buffer)
+
+            _LOGGER.debug("verify: %s type: %s", str(
+                bool_(config["verify"]["value"])), str(type(bool_(config["verify"]["value"]))))
+            if bool_(config["verify"]["value"]) is True:
+                read_buffer = client.read_area(
+                    snap7.types.Areas.DB, payload["dbnumber"], payload["byte_index"], bytearray_size)
+                _LOGGER.debug("Write Buffer: %s, Read Buffer: %s",
+                              str(buffer), str(read_buffer))
+                if buffer != read_buffer:
+                    _LOGGER.warn(
+                        'Failed to write data to S7 TCP host %s on port %d, rack %d and slot %d ', host, port, rack, slot)
+                    raise RuntimeError("S7 data writing failed!")
 
         except Exception as ex:
             #client.disconnect()
             _LOGGER.exception(f'Exception sending payloads: {ex}')
+            raise ex
+
 
 def set_value(bytearray_, byte_index, bool_index, value, type_):
     """ Sets the value for a specific type.
@@ -301,10 +353,10 @@ def set_value(bytearray_, byte_index, bool_index, value, type_):
 
     type_ = type_.strip().lower()
 
-    if type_ == 'bool':
-        return set_bool_(bytearray_, byte_index, bool_index, value)
+    if type_ == 'bool' and bool_(config["supportBool"]["value"]) is True:
+        return set_bool_(bytearray_, byte_index, bool_index, bool_(value))
 
-    if type_.startswith('string'):
+    elif type_.startswith('string'):
         max_size = re.search(r'\d+', type_)[0]
         #(\d+\.\.)?(\d+)    0..9
         #if max_size is None:
@@ -403,14 +455,15 @@ def get_type_size(type_name):
 
     type_name = type_name.strip().lower()
 
-    type_size = { "bool": 1, "byte": 1, "char": 1, "word": 2, "dword": 4, "usint": 1,  "uint": 2, "udint": 4, "ulint": 8, "sint": 1, "int": 2, "dint":4, "lint":8,  "real":4, "lreal":8, "string": 256, "date_and_time": 8}
+    type_size = {"bool": 1, "byte": 1, "char": 1, "word": 2, "dword": 4, "usint": 1,  "uint": 2, "udint": 4,
+                 "ulint": 8, "sint": 1, "int": 2, "dint": 4, "lint": 8,  "real": 4, "lreal": 8, "string": 256, "date_and_time": 8}
 
     if type_name in type_size.keys():
         return type_size[type_name]
 
     type_split = type_name.split('[')
-    if  len (type_split) == 2 and "]" == type_name[-1]:
-        array_size = int(type_split[1][:-1]) # +1 because array start with 0
+    if len(type_split) == 2 and "]" == type_name[-1]:
+        array_size = int(type_split[1][:-1])  # +1 because array start with 0
 
         if type_split[0] == 'string':
             return array_size + 2
@@ -418,12 +471,14 @@ def get_type_size(type_name):
         if type_split[0] in type_size.keys():
             return type_size[type_split[0]] * array_size
 
-    if  type_split[0] == 'string' and len (type_split) == 3 and "]" == type_name[-1]:
-        string_size = int(type_split[1][:-1]) + 2 # +1 because array start with 0
-        array_size = int(type_split[2][:-1]) # +1 because array start with 0
+    if type_split[0] == 'string' and len(type_split) == 3 and "]" == type_name[-1]:
+        # +1 because array start with 0
+        string_size = int(type_split[1][:-1]) + 2
+        array_size = int(type_split[2][:-1])  # +1 because array start with 0
         return array_size * string_size
 
     raise ValueError
+
 
 def set_bool_(bytearray_: bytearray, byte_index: int, bool_index: int, value: bool):
     """Set boolean value on location in bytearray.
@@ -456,6 +511,7 @@ def set_bool_(bytearray_: bytearray, byte_index: int, bool_index: int, value: bo
         bytearray_[byte_index] -= index_value
 
     return bytearray_
+
 
 def set_string_(bytearray_: bytearray, byte_index: int, value: str, max_size: int):
     """Set string value
@@ -494,6 +550,7 @@ def set_string_(bytearray_: bytearray, byte_index: int, value: str, max_size: in
 
     return bytearray_
 
+
 def set_dword_(bytearray_: bytearray, byte_index: int, dword: int):
     """Set a DWORD to the buffer.
     Notes:
@@ -516,6 +573,7 @@ def set_dword_(bytearray_: bytearray, byte_index: int, dword: int):
 
     return bytearray_
 
+
 def set_dint_(bytearray_: bytearray, byte_index: int, dint: int):
     """Set value in bytearray to dint
     Notes:
@@ -537,3 +595,12 @@ def set_dint_(bytearray_: bytearray, byte_index: int, dint: int):
         bytearray_[byte_index + i] = b
 
     return bytearray_
+
+
+def bool_(value):
+    if value in (True, "True", "true", 1, "1"):
+        return True
+    if value in (False, "False", "false", 0, "0"):
+        return False
+    else:
+        return bool(value)

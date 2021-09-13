@@ -59,7 +59,7 @@ __copyright__ = "Copyright (c) 2021 Austrian Center for Digital Production (ACDP
 __license__ = "Apache 2.0"
 __version__ = "${VERSION}"
 
-_LOGGER = logger.setup(__name__, level=logging.DEBUG)
+_LOGGER = logger.setup(__name__, level=logging.WARN)
 """ Setup the access to the logging system of Fledge """
 
 _CONFIG_CATEGORY_NAME = "S7"

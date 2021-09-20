@@ -59,7 +59,7 @@ __copyright__ = "Copyright (c) 2021 Austrian Center for Digital Production (ACDP
 __license__ = "Apache 2.0"
 __version__ = "${VERSION}"
 
-_LOGGER = logger.setup(__name__, level=logging.INFO)
+_LOGGER = logger.setup(__name__, level=logging.WARN)
 """ Setup the access to the logging system of Fledge """
 
 _CONFIG_CATEGORY_NAME = "S7"
@@ -145,6 +145,13 @@ _DEFAULT_CONFIG = {
         'default': 'False',
         'order': '8',
         'displayName': 'verify'
+    },
+    'supportStaticValues': {
+        'type': 'boolean',
+        'description': 'Activation of write support for the type boolean. This setting is not recommended because only whole bytes can be written. Procedure: The byte is read, then a bit is changed and finally the whole byte with the changed bit is written again. In the meantime, however, a bit may have changed, which can be very dangerous)',
+        'default': 'False',
+        'order': '9',
+        'displayName': 'Static value support'
     }
 }
 

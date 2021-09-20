@@ -60,7 +60,7 @@ __copyright__ = "Copyright (c) 2021 Austrian Center for Digital Production (ACDP
 __license__ = "Apache 2.0"
 __version__ = "${VERSION}"
 
-_LOGGER = logger.setup(__name__, level=logging.WARN)
+_LOGGER = logger.setup(__name__, level=logging.DEBUG)
 """ Setup the access to the logging system of Fledge """
 
 _CONFIG_CATEGORY_NAME = "S7"
@@ -218,31 +218,6 @@ class S7NorthPlugin(object):
         map = json.loads(config['map']['value'])
 
         try:
-            #global client
-            #if client is None:
-            # try:
-            #     host = config['host']['value']
-            #     port = int(config['port']['value'])
-            #     rack = int(config['rack']['value'])
-            #     slot = int(config['slot']['value'])
-            # except Exception as ex:
-            #     e_msg = 'Failed to parse S7 TCP host address and / or port configuration.'
-            #     _LOGGER.error('%s %s', e_msg, str(ex))
-            #     raise ValueError(e_msg)
-            # try:
-            #     client = snap7.client.Client()
-            #     client_connected = client.connect(host, rack, slot, port)
-            #     #client.connect(host, rack, slot)
-            #     client_connected = client.get_connected()
-            #     if client_connected:
-            #         _LOGGER.info('S7 TCP Client is connected. %s:%d', host, port)
-            #     else:
-            #         raise RuntimeError("S7 TCP Connection failed!")
-            # except:
-            #     client = None
-            #     _LOGGER.warn('Failed to connect! S7 TCP host %s on port %d, rack %d and slot %d ', host, port, rack, slot)
-            #     return is_data_sent, last_object_id, num_sent
-
             _LOGGER.info('processing payloads')
             payload_block = list()
 
@@ -264,7 +239,8 @@ class S7NorthPlugin(object):
                                     if not (item.get('value') is None):
                                         read["value"] = item.get('value')
                                     else:
-                                        _LOGGER.error("JSON is not valid - the JSON key: value is missing")
+                                        _LOGGER.error(
+                                            "JSON is not valid - the JSON key: value is missing")
                                 else:
                                     read["value"] = p['reading'][datapoint]
 
@@ -280,7 +256,8 @@ class S7NorthPlugin(object):
 
                                 await self._send_payload(read)
                         else:
-                            _LOGGER.error("JSON is not valid - one of the following keys is missing: index, DB, type")
+                            _LOGGER.error(
+                                "JSON is not valid - one of the following keys is missing: index, DB, type")
                 num_sent += 1
             _LOGGER.info(f'payloads sent: {num_sent}')
             is_data_sent = True
@@ -381,7 +358,7 @@ def set_value(bytearray_, byte_index, bool_index, value, type_):
         #(\d+\.\.)?(\d+)    0..9
         #if max_size is None:
         #    max_size = 255
-        _LOGGER.info("string max_size %d", max_size)
+        _LOGGER.debug("string max_size %d", max_size)
         return set_string_(bytearray_, byte_index, str(value), int(max_size))
 
     elif type_ == 'real':

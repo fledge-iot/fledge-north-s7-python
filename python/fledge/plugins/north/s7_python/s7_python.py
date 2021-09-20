@@ -25,6 +25,7 @@ from snap7.types import *
 
 import asyncio
 import json
+import re
 
 from fledge.common import logger
 from fledge.plugins.north.common.common import *
@@ -59,7 +60,7 @@ __copyright__ = "Copyright (c) 2021 Austrian Center for Digital Production (ACDP
 __license__ = "Apache 2.0"
 __version__ = "${VERSION}"
 
-_LOGGER = logger.setup(__name__, level=logging.INFO)
+_LOGGER = logger.setup(__name__, level=logging.WARN)
 """ Setup the access to the logging system of Fledge """
 
 _CONFIG_CATEGORY_NAME = "S7"
@@ -127,6 +128,7 @@ _DEFAULT_CONFIG = {
         'default': json.dumps({
             "sinusoid": {
                 "sinusoid": {"DB": "788", "index": "272.0", "type": "Real"},
+                "static-1": {"DB": "788", "index": "262.0", "type": "Int", "value": 1234},
             }
         }),
         'order': '6',
@@ -145,6 +147,13 @@ _DEFAULT_CONFIG = {
         'default': 'False',
         'order': '8',
         'displayName': 'verify'
+    },
+    'supportStaticValues': {
+        'type': 'boolean',
+        'description': 'Activation of write support for the type boolean. This setting is not recommended because only whole bytes can be written. Procedure: The byte is read, then a bit is changed and finally the whole byte with the changed bit is written again. In the meantime, however, a bit may have changed, which can be very dangerous)',
+        'default': 'False',
+        'order': '9',
+        'displayName': 'Static value support'
     }
 }
 
@@ -243,12 +252,22 @@ class S7NorthPlugin(object):
                 if p['asset_code'] in map:
                     for datapoint, item in map[p['asset_code']].items():
                         if not (item.get('index') is None) and not (item.get('DB') is None) and not (item.get('type') is None):
-                            if datapoint in p['reading']:
+                            matches = re.search(
+                                r"^static-\d+", datapoint, re.IGNORECASE)
+                            if datapoint in p['reading'] or (bool_(config["supportStaticValues"]["value"]) is True and matches):
                                 read = dict()
 
                                 read["asset"] = p['asset_code']
                                 read["datapoint"] = datapoint
-                                read["value"] = p['reading'][datapoint]
+
+                                if bool_(config["supportStaticValues"]["value"]) is True and matches:
+                                    if not (item.get('value') is None):
+                                        read["value"] = item.get('value')
+                                    else:
+                                        _LOGGER.error("JSON is not valid - the JSON key: value is missing")
+                                else:
+                                    read["value"] = p['reading'][datapoint]
+
                                 read["type"] = item.get('type')
                                 read["dbnumber"] = int(item.get('DB'))
                                 index_split = str(item.get('index')).split('.')
@@ -260,6 +279,8 @@ class S7NorthPlugin(object):
                                 read["timestamp"] = p['user_ts']
 
                                 await self._send_payload(read)
+                        else:
+                            _LOGGER.error("JSON is not valid - one of the following keys is missing: index, DB, type")
                 num_sent += 1
             _LOGGER.info(f'payloads sent: {num_sent}')
             is_data_sent = True

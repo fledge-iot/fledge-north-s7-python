@@ -327,7 +327,7 @@ class S7NorthPlugin(object):
                 _LOGGER.debug("Write Buffer: %s, Read Buffer: %s",
                               str(buffer), str(read_buffer))
                 if buffer != read_buffer:
-                    _LOGGER.warn(
+                    _LOGGER.error(
                         'Failed to write data to S7 TCP host %s on port %d, rack %d and slot %d ', host, port, rack, slot)
                     raise RuntimeError("S7 data writing failed!")
 
@@ -355,9 +355,9 @@ def set_value(bytearray_, byte_index, bool_index, value, type_):
 
     elif type_.startswith('string'):
         max_size = re.search(r'\d+', type_)[0]
-        #(\d+\.\.)?(\d+)    0..9
-        #if max_size is None:
-        #    max_size = 255
+        # (\d+\.\.)?(\d+)    0..9
+        # if max_size is None:
+        #     max_size = 255
         _LOGGER.debug("string max_size %d", max_size)
         return set_string_(bytearray_, byte_index, str(value), int(max_size))
 

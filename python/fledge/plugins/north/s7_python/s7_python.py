@@ -65,7 +65,6 @@ _LOGGER = logger.setup(__name__, level=logging.INFO)
 
 _CONFIG_CATEGORY_NAME = "S7"
 _CONFIG_CATEGORY_DESCRIPTION = "S7 Python North Plugin"
-
 _DEFAULT_CONFIG = {
     'plugin': {
          'description': 'S7 North Plugin',
@@ -172,7 +171,9 @@ def plugin_init(data):
     _LOGGER.info('Initializing S7 North Python Plugin')
     global s7_north, config
     s7_north = S7NorthPlugin()
+
     config = data
+    _LOGGER.warn(config)
     _LOGGER.info(
         f'Initializing plugin with host: {config["host"]["value"]}, port: {config["port"]["value"]}, rack: {config["rack"]["value"]}  and slot: {config["slot"]["value"]}')
     return config

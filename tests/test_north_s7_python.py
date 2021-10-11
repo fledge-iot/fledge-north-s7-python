@@ -17,6 +17,7 @@ from fledge.plugins.north.s7_python import s7_python as s7
 
 _STREAM_ID = 1
 
+
 async def mock_async_call(p1=ANY):
     """Mocks a generic async function
 
@@ -109,16 +110,15 @@ class TestS7:
             'config': s7._DEFAULT_CONFIG
         }
 
-
     def test_plugin_init_good(self):
-    """Short summary.
+        """Short summary.
 
-    Returns
-    -------
-    type
-        Description of returned object.
+        Returns
+        -------
+        type
+            Description of returned object.
 
-    """
+        """
 
         s7._logger = MagicMock()
 #

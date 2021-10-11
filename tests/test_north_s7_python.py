@@ -15,6 +15,16 @@ import logging
 from unittest.mock import patch, MagicMock, ANY
 from fledge.plugins.north.s7_python import s7_python as s7
 
+
+import asyncio
+import time
+import ast
+import aiohttp
+from fledge.tasks.north.sending_process import SendingProcess
+import fledge.tasks.north.sending_process as module_sp
+from fledge.common.storage_client import payload_builder
+from fledge.common.storage_client.storage_client import StorageClientAsync
+
 _STREAM_ID = 1
 
 
@@ -54,6 +64,8 @@ def fixture_s7(event_loop):
     _omf = MagicMock()
 
     s7._logger = MagicMock(spec=logging)
+
+    # fixme
     s7._config_omf_types = {"type-id": {"value": "0001"}}
 
     return s7
@@ -80,6 +92,9 @@ def fixture_s7_north(event_loop):
     _logger = MagicMock(spec=logging)
 
     s7_north = s7.S7NorthPlugin()
+
+    # fixme: check if required
+    #s7_north._sending_process_instance._storage_async = MagicMock(spec=StorageClientAsync)
 
     return s7_north
 
@@ -119,8 +134,56 @@ class TestS7:
             Description of returned object.
 
         """
+        data = s7._DEFAULT_CONFIG
+        data['host']['value'] = '127.0.0.1'
+        data['port']['value'] = data['port']['default']
+        data['rack']['value'] = data['rack']['default']
+        data['slot']['value'] = data['slot']['default']
+        data['map']['value'] = data['map']['default']
 
         s7._logger = MagicMock()
+
+        assert data == s7.plugin_init(data)
+
+    @pytest.mark.parametrize(
+        "send_payloads_data, "
+        "payload_raw_data",
+        [
+            (
+                # send_payloads_data
+                # is_data_available - new_last_object_id - num_sent
+                [True,                20,            10],
+                # raw_data
+                [
+                    {
+                        "id": 10,
+                        "asset_code": "test_asset_code",
+                        "reading": {"humidity": 100, "temperature": 1001},
+                        "user_ts": '2018-04-20 09:38:50.163164+00'
+                    }
+                ]
+             )
+        ]
+    )
+    @pytest.mark.asyncio
+    async def test_plugin_send(self,
+                               send_payloads_data,
+                               payload_raw_data,
+                               monkeypatch
+                               ):
+        data = MagicMock()
+
+        config = s7._DEFAULT_CONFIG
+        config['host']['value'] = '127.0.0.1'
+        config['port']['value'] = config['port']['default']
+        config['rack']['value'] = config['rack']['default']
+        config['slot']['value'] = config['slot']['default']
+        config['map']['value'] = config['map']['default']
+
+        monkeypatch.setattr(s7, "config", config)
+        is_data_sent, last_object_id, num_sent = await s7.plugin_send(data, payload_raw_data, _STREAM_ID)
+
+        assert [True, 10, 1] == [is_data_sent, last_object_id, num_sent]
 #
 #         # Used to check the conversions
 #         data = {

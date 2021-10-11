@@ -329,7 +329,7 @@ class S7NorthPlugin(object):
                               str(buffer), str(read_buffer))
                 if buffer != read_buffer:
                     _LOGGER.error(
-                        'Failed to write data to S7 TCP host %s on port %d, rack %d and slot %d ', host, port, rack, slot)
+                        'Verification failed! Failed to write data to S7 TCP host %s on port %d, rack %d and slot %d ', host, port, rack, slot)
                     raise RuntimeError("S7 data writing failed!")
 
         except Exception as ex:

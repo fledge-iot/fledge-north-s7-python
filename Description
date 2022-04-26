@@ -1,1 +1,1 @@
-A Python plugin for Fledge that sends data north to Kafka
+A Python plugin for Fledge that sends data north to Siemens S7 PLCs

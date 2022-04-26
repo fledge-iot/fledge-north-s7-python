@@ -1,9 +1,9 @@
 # A set of variables that define how we package this repository
 #
-plugin_name=kafka_python
+plugin_name=s7_python
 plugin_type=north
 plugin_install_dirname=${plugin_name}
-plugin_package_name=fledge-${plugin_type}-kafka-python
+plugin_package_name=fledge-${plugin_type}-s7-python
 
 # Now build up the runtime requirements list. This has 3 components
 #   1. Generic packages we depend on in all architectures and package managers

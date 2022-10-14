@@ -13,7 +13,7 @@ import json
 import logging
 
 from unittest.mock import patch, MagicMock, ANY
-from fledge.plugins.north.s7_python import s7_python as s7
+from python.fledge.plugins.north.s7_python import s7_python as s7
 
 
 import asyncio

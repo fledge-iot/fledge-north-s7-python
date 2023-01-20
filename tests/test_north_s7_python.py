@@ -119,7 +119,7 @@ class TestS7:
 
         assert plugin_info == {
             'name': 's7_north_python',
-            'version': '2.1.0',
+            'version': '2.1.1',
             'type': 'north',
             'interface': '1.0',
             'config': s7._DEFAULT_CONFIG

@@ -216,7 +216,7 @@ class S7NorthPlugin(object):
 
         size_payload_block = 0
 
-        map = json.loads(config['map']['value'])
+        map = config['map']['value']
 
         try:
             _LOGGER.info('processing payloads')

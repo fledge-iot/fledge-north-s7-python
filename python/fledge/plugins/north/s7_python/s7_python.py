@@ -23,6 +23,7 @@ import snap7
 from snap7.util import *
 from snap7.types import *
 
+import logging
 import asyncio
 import json
 import re

@@ -23,6 +23,7 @@ import snap7
 from snap7.util import *
 from snap7.types import *
 
+import logging
 import asyncio
 import json
 import re
@@ -160,7 +161,7 @@ _DEFAULT_CONFIG = {
 def plugin_info():
     return {
         'name': 's7_north_python',
-        'version': '2.4.0',
+        'version': '2.5.0',
         'type': 'north',
         'interface': '1.0',
         'config': _DEFAULT_CONFIG

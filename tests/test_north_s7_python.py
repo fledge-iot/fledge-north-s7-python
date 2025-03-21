@@ -20,8 +20,8 @@ import asyncio
 import time
 import ast
 import aiohttp
-from fledge.tasks.north.sending_process import SendingProcess
-import fledge.tasks.north.sending_process as module_sp
+#from fledge.tasks.north.sending_process import SendingProcess
+#import fledge.tasks.north.sending_process as module_sp
 from fledge.common.storage_client import payload_builder
 from fledge.common.storage_client.storage_client import StorageClientAsync
 
@@ -99,8 +99,6 @@ def fixture_s7_north(event_loop):
     return s7_north
 
 
-@pytest.allure.feature('unit')
-@pytest.allure.story('plugin', 'north', 's7')
 @pytest.mark.usefixtures('fixture_s7_north')
 class TestS7:
     """Short summary."""
@@ -119,7 +117,7 @@ class TestS7:
 
         assert plugin_info == {
             'name': 's7_north_python',
-            'version': '2.6.0',
+            'version': '3.0.0',
             'type': 'north',
             'interface': '1.0',
             'config': s7._DEFAULT_CONFIG
